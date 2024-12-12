@@ -1021,25 +1021,6 @@ class ZeroxPDFLoader(BasePDFLoader):
                     },
                 )
 
-
-# from langchain_community.document_loaders import PyPDFLoader
-from langchain_community.document_loaders.base import BaseLoader
-from langchain_core.documents import Document
-
-import os
-from typing import (
-    TYPE_CHECKING,
-    Any,
-    Dict,
-    Iterator,
-    List,
-    Mapping,
-    Optional,
-    Sequence,
-    Union,
-)
-import json
-
 class AdobeExtractLoader(BaseLoader):
     def __init__(
         self,
