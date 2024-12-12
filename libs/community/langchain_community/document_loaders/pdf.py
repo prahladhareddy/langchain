@@ -1039,7 +1039,6 @@ class AdobeExtractLoader(BaseLoader):
                 "`pdfservices` package not found, please install it with "
                 "`pip install pip install pdfservices-sdk`"
             )
-        # super().__init__(file_path, headers=headers)
 
         self.file_path = file_path
         credentials = ServicePrincipalCredentials( client_id=client_id, client_secret=client_secret )
