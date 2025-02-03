@@ -1020,6 +1020,102 @@ class ZeroxPDFLoader(BasePDFLoader):
                         "num_pages": num_pages,
                     },
                 )
+                
+
+class AdobeExtractLoader(BasePDFLoader):
+    """
+    Document loader utilizing extract operation in pdfservices-sdk library:
+    https://pypi.org/project/pdfservices-sdk/
+    """
+    def __init__(
+        self,
+        file_path: str,
+        client_id: str,
+        client_secret: str,
+        *,
+        headers: Optional[Dict] = None
+    ):
+        """
+        Initialize the object for file processing with AdobeExtractLoader
+
+        Parameters:
+        -----------
+        file_path : str
+            Path or url of the pdf file
+        client_id: str
+            client_id for Adobe PDF Services
+        client_secret : str
+            client_secret for Adobe PDF Services
+
+        Examples:
+        ---------
+        >>> obj = AdobeExtractLoader(
+        ...     file_path="path/to/file",
+        ...     client_id="<client_id>",
+        ...     client_secret:"<client_secret>",
+        ... )
+        """
+        super().__init__(file_path, headers=headers)
+
+        from adobe.pdfservices.operation.auth.service_principal_credentials import ServicePrincipalCredentials
+        from adobe.pdfservices.operation.pdf_services import PDFServices
+        from adobe.pdfservices.operation.pdfjobs.params.extract_pdf.extract_pdf_params import ExtractPDFParams
+        from adobe.pdfservices.operation.pdfjobs.params.extract_pdf.extract_element_type import ExtractElementType
+
+        credentials = ServicePrincipalCredentials(client_id=client_id, client_secret=client_secret)
+        self.pdf_services = PDFServices(credentials=credentials)
+        self.extract_pdf_params = ExtractPDFParams(elements_to_extract=[ExtractElementType.TEXT])
+        self.input_asset = None
+        self.location = None
+        self.extract_output = None
+        
+
+    def _upload_pdf(self):
+        from adobe.pdfservices.operation.pdf_services_media_type import PDFServicesMediaType
+
+        with open(self.file_path, 'rb') as file:
+            input_stream = file.read()
+        self.input_asset = self.pdf_services.upload(input_stream=input_stream, mime_type=PDFServicesMediaType.PDF)
+
+    def _submit_job(self):
+        from adobe.pdfservices.operation.pdfjobs.jobs.extract_pdf_job import ExtractPDFJob
+        extract_pdf_job = ExtractPDFJob(input_asset=self.input_asset, extract_pdf_params=self.extract_pdf_params)
+        self.location = self.pdf_services.submit(extract_pdf_job)
+        
+
+    def _fetch_results_json(self):
+        import zipfile
+        import io
+        from adobe.pdfservices.operation.pdfjobs.result.extract_pdf_result import ExtractPDFResult
+        from adobe.pdfservices.operation.io.cloud_asset import CloudAsset
+        from adobe.pdfservices.operation.io.stream_asset import StreamAsset
+        
+        pdf_services_response = self.pdf_services.get_job_result(self.location, ExtractPDFResult)
+        result_asset: CloudAsset = pdf_services_response.get_result().get_resource()
+        stream_asset: StreamAsset = self.pdf_services.get_content(result_asset)
+        zip_file_bytes = io.BytesIO(stream_asset.get_input_stream())
+
+        with zipfile.ZipFile(zip_file_bytes, 'r') as z:
+            if 'structuredData.json' in z.namelist():
+                with z.open('structuredData.json') as f:
+                    self.extract_output = json.load(f)
+    
+    def _convert_output_to_document(self):
+        text_per_page = {}
+        for element in self.extract_output.get("elements", []):
+            if "Text" in element and "Page" in element:
+                text_per_page.setdefault(element["Page"], []).append(element["Text"])
+        
+        for page, texts in text_per_page.items():
+            yield Document(page_content="\n".join(texts), metadata={"page_number": page})
+
+
+    def lazy_load(self) -> Iterator[Document]:
+        """Extracts content from the PDF and converts it into LangChain Documents."""
+        self._upload_pdf()
+        self._submit_job()
+        self._fetch_results_json()
+        yield from self._convert_output_to_document()
 
 
 # Legacy: only for backwards compatibility. Use PyPDFLoader instead
