@@ -1024,19 +1024,8 @@ class ZeroxPDFLoader(BasePDFLoader):
 
 class AdobeExtractLoader(BasePDFLoader):
     """
-    Document loader utilizing pdfservices-sdk library:
+    Document loader utilizing extract operation in pdfservices-sdk library:
     https://pypi.org/project/pdfservices-sdk/
-
-    Zerox converts PDF document to serties of images (page-wise) and
-    uses vision-capable LLM model to generate Markdown representation.
-
-    Zerox utilizes anyc operations. Therefore when using this loader
-    inside Jupyter Notebook (or any environment running async)
-    you will need to:
-    ```python
-        import nest_asyncio
-        nest_asyncio.apply()
-    ```
     """
     def __init__(
         self,
@@ -1046,6 +1035,26 @@ class AdobeExtractLoader(BasePDFLoader):
         *,
         headers: Optional[Dict] = None
     ):
+        """
+        Initialize the object for file processing with AdobeExtractLoader
+
+        Parameters:
+        -----------
+        file_path : str
+            Path or url of the pdf file
+        client_id: str
+            client_id for Adobe PDF Services
+        client_secret : str
+            client_secret for Adobe PDF Services
+
+        Examples:
+        ---------
+        >>> obj = AdobeExtractLoader(
+        ...     file_path="path/to/file",
+        ...     client_id="<client_id>",
+        ...     client_secret:"<client_secret>",
+        ... )
+        """
         super().__init__(file_path, headers=headers)
 
         from adobe.pdfservices.operation.auth.service_principal_credentials import ServicePrincipalCredentials
